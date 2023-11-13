@@ -22,7 +22,7 @@ volumes:
 services:
   mysql:
     container_name: mysql
-    image: mysql:latest
+    image: mysql:8.0
     networks:
       network-zabbix:
         ipv4_address: 10.10.0.10
@@ -107,7 +107,7 @@ services:
 
   grafana:
     container_name: grafana
-    image: grafana/grafana:latest
+    image: grafana/grafana:9.5.13
     networks:
       network-zabbix:
         ipv4_address: 10.10.0.14
