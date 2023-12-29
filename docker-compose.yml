@@ -17,6 +17,7 @@ volumes:
   grafana-data:
   grafana-conf:
   grafana-web:
+  traefik-certificates:
 
 
 services:
@@ -77,12 +78,16 @@ services:
       - ./env/db.env
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.zabbix-frontend.tls=true"
       - "traefik.http.routers.zabbix-frontend.service=zabbix-frontend"
+      - "traefik.http.routers.zabbix-frontend.entrypoints=websecure"
+      - "traefik.http.middlewares.compresstraefik.compress=true"
+      - "traefik.http.routers.zabbix-frontend.middlewares=compresstraefik"
+      - "traefik.http.routers.zabbix-frontend.tls.certresolver=letsencrypt"
       - "traefik.http.services.zabbix-frontend.loadbalancer.server.port=8080"
       - "traefik.http.services.zabbix-frontend.loadbalancer.server.scheme=http"
       - "traefik.http.routers.zabbix-frontend.rule=Host(`${ZABBIX_URL}`)"
-      - "traefik.http.routers.zabbix-frontend.tls.certresolver=leresolver"
-      - "traefik.http.routers.zabbix-frontend.entrypoints=websecure"
+      - "traefik.http.services.zabbix-frontend.loadbalancer.passhostheader=true"
     depends_on:
       - mysql
       - zabbix-server
@@ -122,12 +127,16 @@ services:
       - ./env/grafana.env
     labels:
       - "traefik.enable=true"
+      - "traefik.http.routers.grafana.tls=true"
       - "traefik.http.routers.grafana.service=grafana"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.middlewares.compresstraefik.compress=true"
+      - "traefik.http.routers.grafana.middlewares=compresstraefik"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
       - "traefik.http.services.grafana.loadbalancer.server.port=3000"
       - "traefik.http.services.grafana.loadbalancer.server.scheme=http"
       - "traefik.http.routers.grafana.rule=Host(`${GRAFANA_URL}`)"
-      - "traefik.http.routers.grafana.tls.certresolver=leresolver"
-      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.services.grafana.loadbalancer.passhostheader=true"
     depends_on:
       - mysql
       - zabbix-server
@@ -143,19 +152,21 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "./letsencrypt/acme.json:/acme.json"
+      - /var/run/docker.sock:/var/run/docker.sock
+      - traefik-certificates:/etc/traefik/acme
     env_file:
       - ./env/traefik.env
     command:
+      - "--log.level=WARN"
+      - "--accesslog=true"
+      - "--providers.docker=true"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--providers.docker=true"
-      - "--api"
-      - "--certificatesresolvers.leresolver.acme.email=${ACME_EMAIL}"
-      - "--certificatesresolvers.leresolver.acme.storage=/acme.json"
-      - "--certificatesresolvers.leresolver.acme.tlschallenge=true"
-      - "--serverstransport.insecureskipverify=true"
+      - "--providers.docker.exposedByDefault=false"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme/acme.json"
     labels:
       - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
       - "traefik.http.routers.http-catchall.entrypoints=web"
